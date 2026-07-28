@@ -3,7 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 // Mock the server function module BEFORE importing the component under test.
-const { submitContactMock } = vi.hoisted(() => ({ submitContactMock: vi.fn() }));
+const submitContactMock = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/contact.functions", () => ({
   submitContact: submitContactMock,
 }));
