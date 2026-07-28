@@ -57,15 +57,7 @@ export function ContactSection() {
       message: String(fd.get("message") ?? ""),
     };
 
-    // Client-side spam gates: honeypot + submit-too-fast.
-    const elapsedMs = Date.now() - mountedAtRef.current;
-    if (website.length > 0 || elapsedMs < 1500) {
-      // Pretend it worked so bots don't get feedback.
-      setStatus("success");
-      form.reset();
-      return;
-    }
-
+    // Validate first so real users always get proper feedback.
     const parsed = schema.safeParse(raw);
     if (!parsed.success) {
       const fe: FieldErrors = {};
@@ -74,6 +66,15 @@ export function ContactSection() {
         if (key && !fe[key]) fe[key] = issue.message;
       }
       setErrors(fe);
+      return;
+    }
+
+    // Then client-side spam gates: honeypot + submit-too-fast.
+    const elapsedMs = Date.now() - mountedAtRef.current;
+    if (website.length > 0 || elapsedMs < 1500) {
+      // Pretend it worked so bots don't get feedback.
+      setStatus("success");
+      form.reset();
       return;
     }
 
