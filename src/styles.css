@@ -133,12 +133,29 @@
 }
 
 @layer base {
-  * {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
     border-color: var(--color-border);
   }
 
-  body {
-    background-color: var(--color-background);
+  html,
+  body,
+  #root {
+    margin: 0;
+    padding: 0;
+    background-color: #0c0c0c;
     color: var(--color-foreground);
+    font-family: "Kanit", sans-serif;
   }
 }
+
+.hero-heading {
+  background: linear-gradient(180deg, #646973 0%, #bbccd7 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
