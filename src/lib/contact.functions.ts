@@ -149,6 +149,7 @@ export const submitContact = createServerFn({ method: "POST" })
     if (notifyTo) {
       try {
         // Lazy so failures don't crash the module if templates aren't scaffolded yet.
+        // @ts-expect-error - module is scaffolded later via email-domain setup
         const mod = await import("@/lib/email-templates/send-email").catch(() => null);
         if (mod && "sendTemplateEmail" in mod) {
           const send = mod.sendTemplateEmail as (

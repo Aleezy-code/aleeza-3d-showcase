@@ -32,5 +32,7 @@ class MockIO {
     return [];
   }
 }
-// @ts-expect-error jsdom shim
-window.IntersectionObserver = window.IntersectionObserver ?? MockIO;
+if (!("IntersectionObserver" in window)) {
+  // @ts-expect-error jsdom shim
+  window.IntersectionObserver = MockIO;
+}
