@@ -1,0 +1,214 @@
+import { useState, type FormEvent } from "react";
+import { useServerFn } from "@tanstack/react-start";
+import { motion, AnimatePresence } from "framer-motion";
+import { CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { z } from "zod";
+import { FadeIn } from "./FadeIn";
+import { submitContact } from "@/lib/contact.functions";
+
+const schema = z.object({
+  name: z.string().trim().min(1, "Name is required").max(100, "Too long"),
+  email: z.string().trim().email("Enter a valid email").max(255),
+  message: z.string().trim().min(1, "Message is required").max(1000, "Too long"),
+});
+
+type Status = "idle" | "submitting" | "success" | "error";
+type FieldErrors = Partial<Record<"name" | "email" | "message", string>>;
+
+const inputCls =
+  "w-full bg-transparent border-b border-[#D7E2EA]/30 focus:border-[#D7E2EA] text-[#D7E2EA] placeholder:text-[#D7E2EA]/40 px-0 py-3 outline-none transition-colors font-light";
+
+export function ContactSection() {
+  const submit = useServerFn(submitContact);
+  const [status, setStatus] = useState<Status>("idle");
+  const [errors, setErrors] = useState<FieldErrors>({});
+  const [serverError, setServerError] = useState<string | null>(null);
+
+  async function onSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setServerError(null);
+    setErrors({});
+
+    const fd = new FormData(e.currentTarget);
+    const raw = {
+      name: String(fd.get("name") ?? ""),
+      email: String(fd.get("email") ?? ""),
+      message: String(fd.get("message") ?? ""),
+    };
+
+    const parsed = schema.safeParse(raw);
+    if (!parsed.success) {
+      const fe: FieldErrors = {};
+      for (const issue of parsed.error.issues) {
+        const key = issue.path[0] as keyof FieldErrors;
+        if (key && !fe[key]) fe[key] = issue.message;
+      }
+      setErrors(fe);
+      return;
+    }
+
+    setStatus("submitting");
+    try {
+      await submit({ data: parsed.data });
+      setStatus("success");
+      (e.target as HTMLFormElement).reset();
+    } catch (err) {
+      console.error("[contact] submit failed", err);
+      setServerError(
+        err instanceof Error ? err.message : "Something went wrong. Please try again.",
+      );
+      setStatus("error");
+    }
+  }
+
+  return (
+    <section
+      id="contact"
+      className="rounded-t-[40px] sm:rounded-t-[50px] md:rounded-t-[60px] -mt-10 sm:-mt-12 md:-mt-14 relative z-20 px-5 sm:px-8 md:px-10 pt-20 sm:pt-24 md:pt-32 pb-24"
+      style={{ backgroundColor: "#0C0C0C" }}
+    >
+      <FadeIn
+        as="h2"
+        y={40}
+        className="hero-heading font-black uppercase leading-none tracking-tight text-center mb-12 sm:mb-16 md:mb-20"
+        style={{ fontSize: "clamp(3rem, 12vw, 160px)" }}
+      >
+        Contact
+      </FadeIn>
+
+      <FadeIn className="max-w-2xl mx-auto">
+        <form onSubmit={onSubmit} noValidate className="flex flex-col gap-8">
+          <Field
+            label="Name"
+            name="name"
+            type="text"
+            autoComplete="name"
+            error={errors.name}
+            inputCls={inputCls}
+          />
+          <Field
+            label="Email"
+            name="email"
+            type="email"
+            autoComplete="email"
+            error={errors.email}
+            inputCls={inputCls}
+          />
+          <div className="flex flex-col gap-2">
+            <label
+              htmlFor="message"
+              className="text-[#D7E2EA]/60 uppercase tracking-widest text-xs"
+            >
+              Message
+            </label>
+            <textarea
+              id="message"
+              name="message"
+              rows={4}
+              maxLength={1000}
+              className={`${inputCls} resize-none`}
+              aria-invalid={!!errors.message}
+              aria-describedby={errors.message ? "message-error" : undefined}
+            />
+            {errors.message && (
+              <span id="message-error" className="text-xs text-red-400">
+                {errors.message}
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-4 pt-2">
+            <button
+              type="submit"
+              disabled={status === "submitting"}
+              className="rounded-full text-white font-medium uppercase tracking-widest px-8 py-3 sm:px-10 sm:py-3.5 md:px-12 md:py-4 text-xs sm:text-sm md:text-base transition-transform hover:scale-[1.02] disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center gap-2"
+              style={{
+                background:
+                  "linear-gradient(123deg, #18011F 7%, #B600A8 37%, #7621B0 72%, #BE4C00 100%)",
+                boxShadow:
+                  "0px 4px 4px rgba(181, 1, 167, 0.25), 4px 4px 12px #7721B1 inset",
+                outline: "2px solid white",
+                outlineOffset: "-3px",
+              }}
+            >
+              {status === "submitting" && (
+                <Loader2 className="w-4 h-4 animate-spin" aria-hidden />
+              )}
+              {status === "submitting" ? "Sending" : "Send Message"}
+            </button>
+
+            <AnimatePresence mode="wait">
+              {status === "success" && (
+                <motion.div
+                  key="ok"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  className="flex items-center gap-2 text-emerald-400 text-sm"
+                  role="status"
+                >
+                  <CheckCircle2 className="w-4 h-4" aria-hidden />
+                  Message sent — I&apos;ll be in touch.
+                </motion.div>
+              )}
+              {status === "error" && (
+                <motion.div
+                  key="err"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  className="flex items-center gap-2 text-red-400 text-sm"
+                  role="alert"
+                >
+                  <AlertCircle className="w-4 h-4" aria-hidden />
+                  {serverError ?? "Failed to send. Try again."}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </form>
+      </FadeIn>
+    </section>
+  );
+}
+
+function Field({
+  label,
+  name,
+  type,
+  autoComplete,
+  error,
+  inputCls,
+}: {
+  label: string;
+  name: string;
+  type: string;
+  autoComplete?: string;
+  error?: string;
+  inputCls: string;
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <label
+        htmlFor={name}
+        className="text-[#D7E2EA]/60 uppercase tracking-widest text-xs"
+      >
+        {label}
+      </label>
+      <input
+        id={name}
+        name={name}
+        type={type}
+        autoComplete={autoComplete}
+        className={inputCls}
+        aria-invalid={!!error}
+        aria-describedby={error ? `${name}-error` : undefined}
+      />
+      {error && (
+        <span id={`${name}-error`} className="text-xs text-red-400">
+          {error}
+        </span>
+      )}
+    </div>
+  );
+}
