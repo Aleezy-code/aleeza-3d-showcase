@@ -144,37 +144,11 @@ export const submitContact = createServerFn({ method: "POST" })
       throw new Error("Could not save your message. Please try again.");
     }
 
-    // 4. Notification email (best-effort — never fail the submission on this).
-    const notifyTo = process.env.CONTACT_NOTIFICATION_EMAIL;
-    if (notifyTo) {
-      try {
-        // Lazy so failures don't crash the module if templates aren't scaffolded yet.
-        // @ts-expect-error - module is scaffolded later via email-domain setup
-        const mod = await import("@/lib/email-templates/send-email").catch(() => null);
-        if (mod && "sendTemplateEmail" in mod) {
-          const send = mod.sendTemplateEmail as (
-            template: string,
-            to: string,
-            opts: { templateData: Record<string, unknown>; idempotencyKey?: string },
-          ) => Promise<{ sent: boolean; reason?: string }>;
-          await send("contact-notification", notifyTo, {
-            templateData: {
-              name: data.name,
-              email: data.email,
-              message: data.message,
-              submittedAt: new Date().toISOString(),
-            },
-            idempotencyKey: `contact-${inserted.id}`,
-          });
-        } else {
-          console.info(
-            "[contact] email templates not yet scaffolded — message stored, notification skipped",
-          );
-        }
-      } catch (mailErr) {
-        console.error("[contact] notification email failed", mailErr);
-      }
+    // 4. Notification email — enabled once a sender domain is set up.
+    if (process.env.CONTACT_NOTIFICATION_EMAIL) {
+      console.info("[contact] message stored; notification email pending sender domain setup");
     }
+
 
     return { ok: true, id: inserted.id };
   });
