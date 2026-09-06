@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Lightbox, type LightboxImage } from "./Lightbox";
+
 
 const IMAGES = [
   "https://motionsites.ai/assets/hero-space-voyage-preview-eECLH3Yc.gif",
