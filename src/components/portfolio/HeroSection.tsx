@@ -81,6 +81,13 @@ export function HeroSection() {
           <ContactButton />
         </FadeIn>
       </div>
+      <Lightbox
+        images={[{ src: PORTRAIT, alt: "Jack portrait", caption: "Jack — 3D Creator" }]}
+        index={portraitOpen ? 0 : null}
+        onClose={() => setPortraitOpen(false)}
+        onIndexChange={() => {}}
+      />
     </section>
+
   );
 }
