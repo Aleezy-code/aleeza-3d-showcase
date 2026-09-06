@@ -1,7 +1,9 @@
 import { motion, useScroll, useTransform } from "framer-motion";
-import { useRef } from "react";
+import { useMemo, useRef, useState } from "react";
 import { FadeIn } from "./FadeIn";
 import { LiveProjectButton } from "./LiveProjectButton";
+import { Lightbox, type LightboxImage } from "./Lightbox";
+
 
 interface Project {
   n: string;
