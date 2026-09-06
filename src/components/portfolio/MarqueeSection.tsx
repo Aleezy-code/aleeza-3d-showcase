@@ -29,13 +29,20 @@ const IMAGES = [
 const ROW1 = IMAGES.slice(0, 11);
 const ROW2 = IMAGES.slice(11);
 
-function Tile({ src }: { src: string }) {
+function Tile({ src, onOpen }: { src: string; onOpen: (src: string) => void }) {
   return (
-    <div className="shrink-0 rounded-2xl overflow-hidden" style={{ width: 420, height: 270 }}>
-      <img src={src} alt="" loading="lazy" className="w-full h-full object-cover" />
-    </div>
+    <button
+      type="button"
+      onClick={() => onOpen(src)}
+      aria-label="Open showreel frame"
+      className="shrink-0 rounded-2xl overflow-hidden cursor-zoom-in transition-transform duration-300 hover:scale-[1.03]"
+      style={{ width: 420, height: 270 }}
+    >
+      <img src={src} alt="Showreel frame" loading="lazy" className="w-full h-full object-cover" />
+    </button>
   );
 }
+
 
 export function MarqueeSection() {
   const ref = useRef<HTMLDivElement>(null);
