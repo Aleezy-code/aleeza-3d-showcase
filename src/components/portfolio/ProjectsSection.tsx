@@ -1,7 +1,9 @@
 import { motion, useScroll, useTransform } from "framer-motion";
-import { useRef } from "react";
+import { useMemo, useRef, useState } from "react";
 import { FadeIn } from "./FadeIn";
 import { LiveProjectButton } from "./LiveProjectButton";
+import { Lightbox, type LightboxImage } from "./Lightbox";
+
 
 interface Project {
   n: string;
@@ -44,10 +46,26 @@ const PROJECTS: Project[] = [
   },
 ];
 
-function ProjectCard({ project, index, total, progress }: { project: Project; index: number; total: number; progress: ReturnType<typeof useScroll>["scrollYProgress"] }) {
+function ProjectCard({
+  project,
+  index,
+  total,
+  progress,
+  onOpenImage,
+}: {
+  project: Project;
+  index: number;
+  total: number;
+  progress: ReturnType<typeof useScroll>["scrollYProgress"];
+  onOpenImage: (src: string) => void;
+}) {
   const targetScale = 1 - (total - 1 - index) * 0.03;
   const range = [index / total, 1];
   const scale = useTransform(progress, range, [1, targetScale]);
+
+  const imageClass =
+    "w-full object-cover rounded-[40px] sm:rounded-[50px] md:rounded-[60px] cursor-zoom-in transition-transform duration-300 hover:scale-[1.02]";
+
   return (
     <div className="sticky top-24 md:top-32 h-[85vh] flex items-center justify-center" style={{ top: `${index * 28 + 96}px` }}>
       <motion.div
@@ -61,16 +79,22 @@ function ProjectCard({ project, index, total, progress }: { project: Project; in
             <h3 className="text-[#D7E2EA] font-medium uppercase" style={{ fontSize: "clamp(1.2rem, 2.4vw, 2.2rem)", lineHeight: 1.1 }}>{project.name}</h3>
           </div>
           <div className="shrink-0">
-            <LiveProjectButton />
+            <LiveProjectButton onClick={() => onOpenImage(project.col2)} />
           </div>
         </div>
         <div className="grid grid-cols-5 gap-3 sm:gap-4">
           <div className="col-span-2 flex flex-col gap-3 sm:gap-4">
-            <img src={project.col1[0]} alt="" className="w-full object-cover rounded-[40px] sm:rounded-[50px] md:rounded-[60px]" style={{ height: "clamp(130px, 16vw, 230px)" }} loading="lazy" />
-            <img src={project.col1[1]} alt="" className="w-full object-cover rounded-[40px] sm:rounded-[50px] md:rounded-[60px]" style={{ height: "clamp(160px, 22vw, 340px)" }} loading="lazy" />
+            <button type="button" onClick={() => onOpenImage(project.col1[0])} aria-label={`Open ${project.name} image 1`} className="block w-full">
+              <img src={project.col1[0]} alt={`${project.name} preview 1`} className={imageClass} style={{ height: "clamp(130px, 16vw, 230px)" }} loading="lazy" />
+            </button>
+            <button type="button" onClick={() => onOpenImage(project.col1[1])} aria-label={`Open ${project.name} image 2`} className="block w-full">
+              <img src={project.col1[1]} alt={`${project.name} preview 2`} className={imageClass} style={{ height: "clamp(160px, 22vw, 340px)" }} loading="lazy" />
+            </button>
           </div>
           <div className="col-span-3">
-            <img src={project.col2} alt="" className="w-full h-full object-cover rounded-[40px] sm:rounded-[50px] md:rounded-[60px]" loading="lazy" />
+            <button type="button" onClick={() => onOpenImage(project.col2)} aria-label={`Open ${project.name} main image`} className="block w-full h-full">
+              <img src={project.col2} alt={`${project.name} main preview`} className={`${imageClass} h-full`} loading="lazy" />
+            </button>
           </div>
         </div>
       </motion.div>
@@ -81,6 +105,23 @@ function ProjectCard({ project, index, total, progress }: { project: Project; in
 export function ProjectsSection() {
   const ref = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end end"] });
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
+
+  const gallery = useMemo<LightboxImage[]>(
+    () =>
+      PROJECTS.flatMap((p) => [
+        { src: p.col1[0], alt: `${p.name} preview 1`, caption: p.name },
+        { src: p.col1[1], alt: `${p.name} preview 2`, caption: p.name },
+        { src: p.col2, alt: `${p.name} main preview`, caption: p.name },
+      ]),
+    [],
+  );
+
+  const openImage = (src: string) => {
+    const i = gallery.findIndex((g) => g.src === src);
+    setOpenIndex(i >= 0 ? i : 0);
+  };
+
   return (
     <section id="projects" ref={ref} className="rounded-t-[40px] sm:rounded-t-[50px] md:rounded-t-[60px] -mt-10 sm:-mt-12 md:-mt-14 relative z-10 px-5 sm:px-8 md:px-10 pt-20 sm:pt-24 md:pt-32 pb-20" style={{ backgroundColor: "#0C0C0C" }}>
       <FadeIn as="h2" y={40} className="hero-heading font-black uppercase leading-none tracking-tight text-center mb-16 sm:mb-20 md:mb-24" style={{ fontSize: "clamp(3rem, 12vw, 160px)" }}>
@@ -88,9 +129,11 @@ export function ProjectsSection() {
       </FadeIn>
       <div className="flex flex-col">
         {PROJECTS.map((p, i) => (
-          <ProjectCard key={p.n} project={p} index={i} total={PROJECTS.length} progress={scrollYProgress} />
+          <ProjectCard key={p.n} project={p} index={i} total={PROJECTS.length} progress={scrollYProgress} onOpenImage={openImage} />
         ))}
       </div>
+      <Lightbox images={gallery} index={openIndex} onClose={() => setOpenIndex(null)} onIndexChange={setOpenIndex} />
     </section>
   );
+
 }

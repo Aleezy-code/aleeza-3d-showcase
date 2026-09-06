@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Lightbox, type LightboxImage } from "./Lightbox";
+
 
 const IMAGES = [
   "https://motionsites.ai/assets/hero-space-voyage-preview-eECLH3Yc.gif",
@@ -27,13 +29,20 @@ const IMAGES = [
 const ROW1 = IMAGES.slice(0, 11);
 const ROW2 = IMAGES.slice(11);
 
-function Tile({ src }: { src: string }) {
+function Tile({ src, onOpen }: { src: string; onOpen: (src: string) => void }) {
   return (
-    <div className="shrink-0 rounded-2xl overflow-hidden" style={{ width: 420, height: 270 }}>
-      <img src={src} alt="" loading="lazy" className="w-full h-full object-cover" />
-    </div>
+    <button
+      type="button"
+      onClick={() => onOpen(src)}
+      aria-label="Open showreel frame"
+      className="shrink-0 rounded-2xl overflow-hidden cursor-zoom-in transition-transform duration-300 hover:scale-[1.03]"
+      style={{ width: 420, height: 270 }}
+    >
+      <img src={src} alt="Showreel frame" loading="lazy" className="w-full h-full object-cover" />
+    </button>
   );
 }
+
 
 export function MarqueeSection() {
   const ref = useRef<HTMLDivElement>(null);
@@ -57,16 +66,28 @@ export function MarqueeSection() {
   const x1 = offset - 200;
   const x2 = -(offset - 200);
 
+  const gallery = useMemo<LightboxImage[]>(
+    () => IMAGES.map((src, i) => ({ src, alt: `Showreel frame ${i + 1}`, caption: "Showreel" })),
+    [],
+  );
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const openImage = (src: string) => {
+    const i = gallery.findIndex((g) => g.src === src);
+    setOpenIndex(i >= 0 ? i : 0);
+  };
+
   return (
     <section ref={ref} className="pt-24 sm:pt-32 md:pt-40 pb-10 overflow-hidden" style={{ backgroundColor: "#0C0C0C" }}>
       <div className="flex flex-col gap-3">
         <div className="flex gap-3" style={{ transform: `translateX(${x1}px)`, willChange: "transform" }}>
-          {row1.map((src, i) => <Tile key={`a-${i}`} src={src} />)}
+          {row1.map((src, i) => <Tile key={`a-${i}`} src={src} onOpen={openImage} />)}
         </div>
         <div className="flex gap-3" style={{ transform: `translateX(${x2}px)`, willChange: "transform" }}>
-          {row2.map((src, i) => <Tile key={`b-${i}`} src={src} />)}
+          {row2.map((src, i) => <Tile key={`b-${i}`} src={src} onOpen={openImage} />)}
         </div>
       </div>
+      <Lightbox images={gallery} index={openIndex} onClose={() => setOpenIndex(null)} onIndexChange={setOpenIndex} />
     </section>
+
   );
 }
