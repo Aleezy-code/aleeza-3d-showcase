@@ -86,18 +86,15 @@ export const listContactMessages = createServerFn({ method: "POST" })
     const from = (data.page - 1) * data.pageSize;
     const to = from + data.pageSize - 1;
 
-    let query = context.supabase
-      .from("contact_messages")
-      .select("id, name, email, message, created_at", { count: "exact" })
-      .order(data.sortBy, { ascending: data.sortDir === "asc" })
-      .range(from, to);
+    const query = applyFilters(
+      context.supabase
+        .from("contact_messages")
+        .select(SELECT_COLUMNS, { count: "exact" })
+        .order(data.sortBy, { ascending: data.sortDir === "asc" })
+        .range(from, to),
+      data,
+    );
 
-    const term = escapeFilterValue(data.search);
-    if (term) {
-      query = query.or(
-        `name.ilike.%${term}%,email.ilike.%${term}%,message.ilike.%${term}%`,
-      );
-    }
 
     const { data: rows, count, error } = await query;
     if (error) {
