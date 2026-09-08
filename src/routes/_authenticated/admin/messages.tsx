@@ -82,11 +82,13 @@ function MessagesPage() {
   const isAdmin = adminQuery.data?.isAdmin ?? false;
 
   const messagesQuery = useQuery({
-    queryKey: ["contact-messages", search, sortBy, sortDir, page, pageSize],
-    queryFn: () => list({ data: { search, sortBy, sortDir, page, pageSize } }),
+    queryKey: ["contact-messages", search, sortBy, sortDir, page, pageSize, dateFrom, dateTo, status],
+    queryFn: () =>
+      list({ data: { search, sortBy, sortDir, page, pageSize, dateFrom, dateTo, status } }),
     enabled: isAdmin,
     placeholderData: (prev) => prev,
   });
+
 
   const total = messagesQuery.data?.total ?? 0;
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
