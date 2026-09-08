@@ -144,11 +144,42 @@ export const submitContact = createServerFn({ method: "POST" })
       throw new Error("Could not save your message. Please try again.");
     }
 
-    // 4. Notification email — enabled once a sender domain is set up.
-    if (process.env.CONTACT_NOTIFICATION_EMAIL) {
-      console.info("[contact] message stored; notification email pending sender domain setup");
+    // 4. Notification email with retries; failures are persisted for auditing.
+    try {
+      const { sendContactNotification } = await import("@/lib/email-notify.server");
+      const outcome = await sendContactNotification({
+        id: inserted.id,
+        name: data.name,
+        email: data.email,
+        message: data.message,
+      });
+      await supabaseAdmin
+        .from("contact_messages")
+        .update({
+          notify_status: outcome.status,
+          notify_attempts: outcome.attempts,
+          notify_last_attempt_at: new Date().toISOString(),
+          notify_last_error: outcome.errorMessage,
+          notify_last_error_code: outcome.errorCode,
+        })
+        .eq("id", inserted.id);
+      if (outcome.status !== "sent") {
+        console.error("[contact] notification failed", outcome.errorCode, outcome.errorMessage);
+      }
+    } catch (notifyErr) {
+      console.error("[contact] notification threw", notifyErr);
+      await supabaseAdmin
+        .from("contact_messages")
+        .update({
+          notify_status: "failed",
+          notify_attempts: 1,
+          notify_last_attempt_at: new Date().toISOString(),
+          notify_last_error: String(notifyErr).slice(0, 500),
+          notify_last_error_code: "unhandled",
+        })
+        .eq("id", inserted.id);
     }
-
 
     return { ok: true, id: inserted.id };
   });
+
