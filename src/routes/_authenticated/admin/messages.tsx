@@ -60,7 +60,11 @@ function MessagesPage() {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [status, setStatus] = useState<string>("all");
   const [exporting, setExporting] = useState(false);
+
 
   useEffect(() => {
     const t = setTimeout(() => {
