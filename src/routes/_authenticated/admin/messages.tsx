@@ -189,28 +189,77 @@ function MessagesPage() {
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             placeholder="Search name, email or message"
+            aria-label="Search messages"
             className="border-white/15 bg-transparent pl-9 text-white"
           />
         </div>
-        <Select
-          value={String(pageSize)}
-          onValueChange={(v) => {
-            setPageSize(Number(v));
+        <Input
+          type="date"
+          aria-label="From date"
+          value={dateFrom}
+          onChange={(e) => {
+            setDateFrom(e.target.value);
             setPage(1);
           }}
+          className="w-[160px] border-white/15 bg-transparent text-white"
+        />
+        <Input
+          type="date"
+          aria-label="To date"
+          value={dateTo}
+          onChange={(e) => {
+            setDateTo(e.target.value);
+            setPage(1);
+          }}
+          className="w-[160px] border-white/15 bg-transparent text-white"
+        />
+        <select
+          aria-label="Delivery status"
+          value={status}
+          onChange={(e) => {
+            setStatus(e.target.value);
+            setPage(1);
+          }}
+          className="h-10 rounded-md border border-white/15 bg-transparent px-3 text-sm text-white"
         >
-          <SelectTrigger className="w-[130px] border-white/15 bg-transparent text-white">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {[10, 25, 50].map((n) => (
-              <SelectItem key={n} value={String(n)}>
-                {n} per page
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          {["all", "pending", "sending", "sent", "failed", "skipped"].map((s) => (
+            <option key={s} value={s} className="bg-[#0C0C0C]">
+              {s === "all" ? "All delivery" : s}
+            </option>
+          ))}
+        </select>
+        <select
+          aria-label="Rows per page"
+          value={String(pageSize)}
+          onChange={(e) => {
+            setPageSize(Number(e.target.value));
+            setPage(1);
+          }}
+          className="h-10 rounded-md border border-white/15 bg-transparent px-3 text-sm text-white"
+        >
+          {[10, 25, 50].map((n) => (
+            <option key={n} value={String(n)} className="bg-[#0C0C0C]">
+              {n} per page
+            </option>
+          ))}
+        </select>
+        {(dateFrom || dateTo || status !== "all" || search) && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setSearchInput("");
+              setDateFrom("");
+              setDateTo("");
+              setStatus("all");
+              setPage(1);
+            }}
+          >
+            Clear filters
+          </Button>
+        )}
       </div>
+
 
       <div className="overflow-x-auto rounded-xl border border-white/10">
         <table className="w-full text-left text-sm">
