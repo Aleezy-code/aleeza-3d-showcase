@@ -8,9 +8,18 @@ export type ContactMessageRow = {
   email: string;
   message: string;
   created_at: string;
+  notify_status: string;
+  notify_attempts: number;
+  notify_last_attempt_at: string | null;
+  notify_last_error: string | null;
+  notify_last_error_code: string | null;
 };
 
 const SORTABLE = ["created_at", "name", "email"] as const;
+export const NOTIFY_STATUSES = ["pending", "sending", "sent", "failed", "skipped"] as const;
+
+const SELECT_COLUMNS =
+  "id, name, email, message, created_at, notify_status, notify_attempts, notify_last_attempt_at, notify_last_error, notify_last_error_code";
 
 const listSchema = z.object({
   search: z.string().trim().max(120).optional().default(""),
@@ -18,12 +27,41 @@ const listSchema = z.object({
   sortDir: z.enum(["asc", "desc"]).optional().default("desc"),
   page: z.number().int().min(1).optional().default(1),
   pageSize: z.number().int().min(5).max(100).optional().default(10),
+  dateFrom: z.string().trim().max(40).optional().default(""),
+  dateTo: z.string().trim().max(40).optional().default(""),
+  status: z.enum(["all", ...NOTIFY_STATUSES]).optional().default("all"),
 });
 
 function escapeFilterValue(value: string): string {
   // PostgREST `or` filters are comma/paren delimited — strip those characters.
   return value.replace(/[,()*\\]/g, " ").trim();
 }
+
+type Filters = z.infer<typeof listSchema>;
+
+function applyFilters<T extends { or: (f: string) => T; gte: (c: string, v: string) => T; lte: (c: string, v: string) => T; eq: (c: string, v: string) => T }>(
+  query: T,
+  data: Pick<Filters, "search" | "dateFrom" | "dateTo" | "status">,
+): T {
+  let q = query;
+  const term = escapeFilterValue(data.search);
+  if (term) {
+    q = q.or(`name.ilike.%${term}%,email.ilike.%${term}%,message.ilike.%${term}%`);
+  }
+  if (data.dateFrom) {
+    const d = new Date(`${data.dateFrom}T00:00:00.000Z`);
+    if (!Number.isNaN(d.getTime())) q = q.gte("created_at", d.toISOString());
+  }
+  if (data.dateTo) {
+    const d = new Date(`${data.dateTo}T23:59:59.999Z`);
+    if (!Number.isNaN(d.getTime())) q = q.lte("created_at", d.toISOString());
+  }
+  if (data.status !== "all") {
+    q = q.eq("notify_status", data.status);
+  }
+  return q;
+}
+
 
 export const isCurrentUserAdmin = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
