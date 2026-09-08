@@ -118,21 +118,19 @@ function csvCell(value: string): string {
 export const exportContactMessagesCsv = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) =>
-    listSchema.pick({ search: true, sortBy: true, sortDir: true }).parse(data ?? {}),
+    listSchema
+      .pick({ search: true, sortBy: true, sortDir: true, dateFrom: true, dateTo: true, status: true })
+      .parse(data ?? {}),
   )
   .handler(async ({ data, context }) => {
-    let query = context.supabase
-      .from("contact_messages")
-      .select("id, name, email, message, created_at")
-      .order(data.sortBy, { ascending: data.sortDir === "asc" })
-      .limit(5000);
-
-    const term = escapeFilterValue(data.search);
-    if (term) {
-      query = query.or(
-        `name.ilike.%${term}%,email.ilike.%${term}%,message.ilike.%${term}%`,
-      );
-    }
+    const query = applyFilters(
+      context.supabase
+        .from("contact_messages")
+        .select(SELECT_COLUMNS)
+        .order(data.sortBy, { ascending: data.sortDir === "asc" })
+        .limit(5000),
+      data,
+    );
 
     const { data: rows, error } = await query;
     if (error) {
@@ -140,15 +138,38 @@ export const exportContactMessagesCsv = createServerFn({ method: "POST" })
       throw new Error("Could not export messages.");
     }
 
-    const header = ["id", "name", "email", "message", "created_at"];
+    const header = [
+      "id",
+      "name",
+      "email",
+      "message",
+      "created_at",
+      "notify_status",
+      "notify_attempts",
+      "notify_last_attempt_at",
+      "notify_last_error_code",
+      "notify_last_error",
+    ];
     const lines = [header.join(",")];
     for (const row of (rows ?? []) as ContactMessageRow[]) {
       lines.push(
-        [row.id, row.name, row.email, row.message, row.created_at]
+        [
+          row.id,
+          row.name,
+          row.email,
+          row.message,
+          row.created_at,
+          row.notify_status,
+          row.notify_attempts,
+          row.notify_last_attempt_at,
+          row.notify_last_error_code,
+          row.notify_last_error,
+        ]
           .map((v) => csvCell(String(v ?? "")))
           .join(","),
       );
     }
+
 
     return { csv: lines.join("\r\n"), count: rows?.length ?? 0 };
   });
