@@ -22,6 +22,11 @@ export type Database = {
           ip_hash: string | null
           message: string
           name: string
+          notify_attempts: number
+          notify_last_attempt_at: string | null
+          notify_last_error: string | null
+          notify_last_error_code: string | null
+          notify_status: string
           user_agent: string | null
         }
         Insert: {
@@ -31,6 +36,11 @@ export type Database = {
           ip_hash?: string | null
           message: string
           name: string
+          notify_attempts?: number
+          notify_last_attempt_at?: string | null
+          notify_last_error?: string | null
+          notify_last_error_code?: string | null
+          notify_status?: string
           user_agent?: string | null
         }
         Update: {
@@ -40,6 +50,11 @@ export type Database = {
           ip_hash?: string | null
           message?: string
           name?: string
+          notify_attempts?: number
+          notify_last_attempt_at?: string | null
+          notify_last_error?: string | null
+          notify_last_error_code?: string | null
+          notify_status?: string
           user_agent?: string | null
         }
         Relationships: []
