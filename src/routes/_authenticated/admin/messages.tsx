@@ -107,7 +107,10 @@ function MessagesPage() {
   async function handleExport() {
     setExporting(true);
     try {
-      const result = await exportCsv({ data: { search, sortBy, sortDir } });
+      const result = await exportCsv({
+        data: { search, sortBy, sortDir, dateFrom, dateTo, status },
+      });
+
       const blob = new Blob([`\uFEFF${result.csv}`], {
         type: "text/csv;charset=utf-8;",
       });
