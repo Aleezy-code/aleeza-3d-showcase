@@ -39,7 +39,7 @@ export function HeroSection() {
 
       <div className="overflow-hidden mt-6 sm:mt-4 md:-mt-5 relative z-20 pointer-events-none">
         <FadeIn as="h1" delay={0.15} y={40} className="hero-heading font-black uppercase tracking-tight leading-none whitespace-nowrap w-full text-center text-[14vw] sm:text-[15vw] md:text-[16vw] lg:text-[17.5vw]">
-          Hi, i&apos;m jack
+          Hi, i&apos;m aleeza
         </FadeIn>
       </div>
 
@@ -59,7 +59,7 @@ export function HeroSection() {
           >
             <img
               src={PORTRAIT}
-              alt="Jack portrait"
+              alt="Aleeza portrait"
               className="w-full h-auto select-none"
               draggable={false}
             />
@@ -82,7 +82,7 @@ export function HeroSection() {
         </FadeIn>
       </div>
       <Lightbox
-        images={[{ src: PORTRAIT, alt: "Jack portrait", caption: "Jack — 3D Creator" }]}
+        images={[{ src: PORTRAIT, alt: "Aleeza portrait", caption: "Aleeza — 3D Creator" }]}
         index={portraitOpen ? 0 : null}
         onClose={() => setPortraitOpen(false)}
         onIndexChange={() => {}}

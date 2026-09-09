@@ -24,12 +24,12 @@ type SortBy = "created_at" | "name" | "email";
 export const Route = createFileRoute("/_authenticated/admin/messages")({
   head: () => ({
     meta: [
-      { title: "Contact messages — Jack Studio Admin" },
+      { title: "Contact messages — Aleeza Studio Admin" },
       {
         name: "description",
         content: "Search, sort, page through and export contact form submissions.",
       },
-      { property: "og:title", content: "Contact messages — Jack Studio Admin" },
+      { property: "og:title", content: "Contact messages — Aleeza Studio Admin" },
       {
         property: "og:description",
         content: "Private admin view of portfolio contact form submissions.",

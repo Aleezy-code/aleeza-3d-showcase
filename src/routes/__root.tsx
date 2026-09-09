@@ -77,8 +77,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Jack — 3D Creator" },
-      { name: "description", content: "Jack is a 3D creator crafting striking, unforgettable projects." },
+      { title: "Aleeza — 3D Creator" },
+      { name: "description", content: "Aleeza is a 3D creator crafting striking, unforgettable projects." },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
