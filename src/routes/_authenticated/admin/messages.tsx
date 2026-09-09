@@ -261,6 +261,7 @@ function MessagesPage() {
               <SortHeader label="Name" column="name" {...{ sortBy, sortDir, toggleSort }} />
               <SortHeader label="Email" column="email" {...{ sortBy, sortDir, toggleSort }} />
               <th className="px-4 py-3 font-medium">Message</th>
+              <th className="px-4 py-3 font-medium">Delivery</th>
               <SortHeader
                 label="Received"
                 column="created_at"
@@ -271,14 +272,14 @@ function MessagesPage() {
           <tbody>
             {messagesQuery.isLoading && (
               <tr>
-                <td colSpan={4} className="px-4 py-10 text-center text-white/50">
+                <td colSpan={5} className="px-4 py-10 text-center text-white/50">
                   Loading…
                 </td>
               </tr>
             )}
             {!messagesQuery.isLoading && rows.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-10 text-center text-white/50">
+                <td colSpan={5} className="px-4 py-10 text-center text-white/50">
                   No messages found.
                 </td>
               </tr>
@@ -292,11 +293,33 @@ function MessagesPage() {
                   </a>
                 </td>
                 <td className="max-w-[420px] px-4 py-3 whitespace-pre-wrap">{row.message}</td>
+                <td className="px-4 py-3 text-xs">
+                  <span
+                    className={
+                      row.notify_status === "sent"
+                        ? "text-emerald-400"
+                        : row.notify_status === "failed"
+                          ? "text-red-400"
+                          : "text-white/50"
+                    }
+                  >
+                    {row.notify_status}
+                  </span>
+                  {row.notify_attempts > 0 && (
+                    <span className="ml-1 text-white/40">({row.notify_attempts} tries)</span>
+                  )}
+                  {row.notify_last_error && (
+                    <div className="mt-1 max-w-[240px] text-white/40" title={row.notify_last_error}>
+                      {row.notify_last_error_code}: {row.notify_last_error.slice(0, 60)}
+                    </div>
+                  )}
+                </td>
                 <td className="px-4 py-3 whitespace-nowrap text-white/60">
                   {new Date(row.created_at).toLocaleString()}
                 </td>
               </tr>
             ))}
+
           </tbody>
         </table>
       </div>
