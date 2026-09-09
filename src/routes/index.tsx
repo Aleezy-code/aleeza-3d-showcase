@@ -4,7 +4,9 @@ import { MarqueeSection } from "@/components/portfolio/MarqueeSection";
 import { AboutSection } from "@/components/portfolio/AboutSection";
 import { ServicesSection } from "@/components/portfolio/ServicesSection";
 import { ProjectsSection } from "@/components/portfolio/ProjectsSection";
+import { MyUploadsSection } from "@/components/portfolio/MyUploadsSection";
 import { ContactSection } from "@/components/portfolio/ContactSection";
+
 
 export const Route = createFileRoute("/")({
   head: () => ({
