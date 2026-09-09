@@ -93,8 +93,10 @@ describe("admin contact messages page", () => {
     renderPage();
     expect(await screen.findByText("Person 1")).toBeInTheDocument();
     expect(screen.getByText("42 total submissions")).toBeInTheDocument();
-    expect(screen.getByText("failed")).toBeInTheDocument();
-    expect(screen.getByText(/no_sender_domain/)).toBeInTheDocument();
+    const table = screen.getByRole("table");
+    expect(within(table).getByText("failed")).toBeInTheDocument();
+    expect(within(table).getByText(/no_sender_domain/)).toBeInTheDocument();
+
   });
 
   it("searches with a debounce and resets to page one", async () => {
