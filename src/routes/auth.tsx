@@ -9,12 +9,12 @@ import { Loader2 } from "lucide-react";
 export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
-      { title: "Sign in — Jack Studio Admin" },
+      { title: "Sign in — Aleeza Studio Admin" },
       {
         name: "description",
-        content: "Sign in to review contact messages sent through the Jack 3D Creator portfolio.",
+        content: "Sign in to review contact messages sent through the Aleeza 3D Creator portfolio.",
       },
-      { property: "og:title", content: "Sign in — Jack Studio Admin" },
+      { property: "og:title", content: "Sign in — Aleeza Studio Admin" },
       {
         property: "og:description",
         content: "Private sign-in for reviewing portfolio contact messages.",

@@ -4,15 +4,17 @@ import { MarqueeSection } from "@/components/portfolio/MarqueeSection";
 import { AboutSection } from "@/components/portfolio/AboutSection";
 import { ServicesSection } from "@/components/portfolio/ServicesSection";
 import { ProjectsSection } from "@/components/portfolio/ProjectsSection";
+import { MyUploadsSection } from "@/components/portfolio/MyUploadsSection";
 import { ContactSection } from "@/components/portfolio/ContactSection";
+
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Jack — 3D Creator" },
-      { name: "description", content: "Jack is a 3D creator crafting striking, unforgettable projects across branding, motion design, and web experiences." },
-      { property: "og:title", content: "Jack — 3D Creator" },
-      { property: "og:description", content: "Portfolio of Jack, a 3D creator specializing in modeling, rendering, motion design, branding, and web design." },
+      { title: "Aleeza — 3D Creator" },
+      { name: "description", content: "Aleeza is a 3D creator crafting striking, unforgettable projects across branding, motion design, and web experiences." },
+      { property: "og:title", content: "Aleeza — 3D Creator" },
+      { property: "og:description", content: "Portfolio of Aleeza, a 3D creator specializing in modeling, rendering, motion design, branding, and web design." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
