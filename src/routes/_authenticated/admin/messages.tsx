@@ -41,7 +41,7 @@ export const Route = createFileRoute("/_authenticated/admin/messages")({
   component: MessagesPage,
 });
 
-function MessagesPage() {
+export function MessagesPage() {
   const navigate = useNavigate();
   const checkAdmin = useServerFn(isCurrentUserAdmin);
   const list = useServerFn(listContactMessages);
