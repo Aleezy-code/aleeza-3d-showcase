@@ -30,6 +30,8 @@ function Index() {
       <AboutSection />
       <ServicesSection />
       <ProjectsSection />
+      <MyUploadsSection />
+
       <ContactSection />
     </main>
   );
