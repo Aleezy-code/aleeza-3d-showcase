@@ -1,106 +1,134 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ImagePlus, Trash2, Loader2 } from "lucide-react";
+import { ImagePlus, Loader2, Trash2, X, Check, Lock } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { User } from "@supabase/supabase-js";
 import { FadeIn } from "./FadeIn";
-import { Lightbox, type LightboxImage } from "./Lightbox";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  createProject,
+  deleteProject,
+  fetchUploadedProjects,
+  formatBytes,
+  validateFile,
+  MAX_FILES_PER_PROJECT,
+  PROJECT_CATEGORIES,
+} from "@/lib/projects";
 
-const STORAGE_KEY = "aleeza-gallery-uploads";
-const MAX_DIMENSION = 1600;
-const MAX_FILES = 24;
-
-interface Upload {
+interface Selected {
   id: string;
-  name: string;
-  src: string;
+  file: File;
+  preview: string;
 }
 
-/** Downscale to keep browser storage small, and normalise to JPEG. */
-function readAndCompress(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error("Could not read the file"));
-    reader.onload = () => {
-      const img = new Image();
-      img.onerror = () => reject(new Error("That file is not a readable image"));
-      img.onload = () => {
-        const scale = Math.min(1, MAX_DIMENSION / Math.max(img.width, img.height));
-        const canvas = document.createElement("canvas");
-        canvas.width = Math.round(img.width * scale);
-        canvas.height = Math.round(img.height * scale);
-        const ctx = canvas.getContext("2d");
-        if (!ctx) {
-          reject(new Error("Could not process the image"));
-          return;
-        }
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL("image/jpeg", 0.82));
-      };
-      img.src = String(reader.result);
-    };
-    reader.readAsDataURL(file);
-  });
-}
+const inputClass =
+  "w-full rounded-full border-2 border-[#D7E2EA]/40 bg-transparent px-5 py-3 text-[#D7E2EA] placeholder:text-[#D7E2EA]/35 uppercase tracking-widest text-xs sm:text-sm focus:outline-none focus:border-[#D7E2EA] transition-colors";
 
 export function MyUploadsSection() {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [uploads, setUploads] = useState<Upload[]>([]);
-  const [busy, setBusy] = useState(false);
+  const queryClient = useQueryClient();
+
+  const [user, setUser] = useState<User | null>(null);
+  const [authReady, setAuthReady] = useState(false);
+  const [selected, setSelected] = useState<Selected[]>([]);
+  const [title, setTitle] = useState("");
+  const [category, setCategory] = useState<string>(PROJECT_CATEGORIES[0]);
   const [error, setError] = useState<string | null>(null);
-  const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const [success, setSuccess] = useState(false);
 
   useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (raw) setUploads(JSON.parse(raw) as Upload[]);
-    } catch {
-      /* ignore unreadable storage */
-    }
+    let active = true;
+    void supabase.auth.getUser().then(({ data }) => {
+      if (!active) return;
+      setUser(data.user ?? null);
+      setAuthReady(true);
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      setAuthReady(true);
+    });
+    return () => {
+      active = false;
+      sub.subscription.unsubscribe();
+    };
   }, []);
 
-  const persist = useCallback((next: Upload[]) => {
-    setUploads(next);
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-    } catch {
-      setError("Your browser ran out of space — remove a few images and try again.");
-    }
-  }, []);
+  // Release object URLs when previews are replaced or the section unmounts.
+  useEffect(() => () => selected.forEach((s) => URL.revokeObjectURL(s.preview)), [selected]);
 
-  const handleFiles = async (fileList: FileList | null) => {
-    if (!fileList || fileList.length === 0) return;
-    setError(null);
-    setBusy(true);
-    try {
-      const files = Array.from(fileList).filter((f) => f.type.startsWith("image/"));
-      if (files.length === 0) {
-        setError("Please choose image files (JPG, PNG, WEBP or GIF).");
-        return;
+  const projectsQuery = useQuery({
+    queryKey: ["uploaded-projects"],
+    queryFn: fetchUploadedProjects,
+  });
+
+  const uploadMutation = useMutation({
+    mutationFn: createProject,
+    onSuccess: async () => {
+      selected.forEach((s) => URL.revokeObjectURL(s.preview));
+      setSelected([]);
+      setTitle("");
+      setCategory(PROJECT_CATEGORIES[0]);
+      setError(null);
+      setSuccess(true);
+      await queryClient.invalidateQueries({ queryKey: ["uploaded-projects"] });
+      window.setTimeout(() => setSuccess(false), 4000);
+    },
+    onError: (err: Error) => setError(err.message),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteProject,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["uploaded-projects"] }),
+    onError: (err: Error) => setError(err.message),
+  });
+
+  const totalSize = useMemo(() => selected.reduce((sum, s) => sum + s.file.size, 0), [selected]);
+
+  const handleFiles = (list: FileList | null) => {
+    if (!list || list.length === 0) return;
+    setSuccess(false);
+    const problems: string[] = [];
+    const accepted: Selected[] = [];
+
+    for (const file of Array.from(list)) {
+      const problem = validateFile(file);
+      if (problem) {
+        problems.push(problem);
+        continue;
       }
-      const added: Upload[] = [];
-      for (const file of files) {
-        try {
-          const src = await readAndCompress(file);
-          added.push({ id: `${Date.now()}-${added.length}`, name: file.name.replace(/\.[^.]+$/, ""), src });
-        } catch {
-          setError(`Could not add ${file.name}.`);
-        }
+      if (selected.length + accepted.length >= MAX_FILES_PER_PROJECT) {
+        problems.push(`Only ${MAX_FILES_PER_PROJECT} images per project — extra files were skipped.`);
+        break;
       }
-      if (added.length > 0) persist([...added, ...uploads].slice(0, MAX_FILES));
-    } finally {
-      setBusy(false);
-      if (inputRef.current) inputRef.current.value = "";
+      accepted.push({ id: crypto.randomUUID(), file, preview: URL.createObjectURL(file) });
     }
+
+    if (accepted.length > 0) setSelected((prev) => [...prev, ...accepted]);
+    setError(problems.length > 0 ? problems.join(" ") : null);
+    if (inputRef.current) inputRef.current.value = "";
   };
 
-  const remove = (id: string) => persist(uploads.filter((u) => u.id !== id));
+  const removeSelected = (id: string) => {
+    setSelected((prev) => {
+      const match = prev.find((s) => s.id === id);
+      if (match) URL.revokeObjectURL(match.preview);
+      return prev.filter((s) => s.id !== id);
+    });
+  };
 
-  const gallery: LightboxImage[] = uploads.map((u) => ({ src: u.src, alt: u.name, caption: u.name }));
+  const confirmUpload = () => {
+    setError(null);
+    uploadMutation.mutate({ title, category, files: selected.map((s) => s.file) });
+  };
+
+  const uploaded = projectsQuery.data ?? [];
 
   return (
     <section
-      id="my-uploads"
+      id="upload"
       className="px-5 sm:px-8 md:px-10 py-20 sm:py-24 relative z-10"
-      style={{ backgroundColor: "#0C0C0C" }}
+      style={{ backgroundColor: "#0C0C0C", fontFamily: "'Kanit', sans-serif" }}
     >
       <FadeIn
         as="h2"
@@ -108,85 +136,183 @@ export function MyUploadsSection() {
         className="hero-heading font-black uppercase leading-none tracking-tight text-center"
         style={{ fontSize: "clamp(2.4rem, 9vw, 120px)" }}
       >
-        My Uploads
+        Upload
       </FadeIn>
 
-      <p className="text-[#D7E2EA]/60 text-center max-w-xl mx-auto mt-5 text-sm sm:text-base">
-        Add work straight from your gallery. Images stay saved in this browser and open full screen when clicked.
+      <p className="text-[#D7E2EA]/60 text-center max-w-xl mx-auto mt-5 text-sm sm:text-base font-light">
+        Add work from your gallery, check the preview, then confirm — saved projects appear in the Projects section
+        automatically.
       </p>
 
-      <div className="flex flex-col items-center gap-3 mt-8">
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/*"
-          multiple
-          className="sr-only"
-          aria-label="Upload project images from your gallery"
-          onChange={(e) => void handleFiles(e.target.files)}
-        />
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => inputRef.current?.click()}
-          className="inline-flex items-center gap-3 rounded-full border-2 border-[#D7E2EA] px-7 py-3.5 uppercase tracking-widest text-xs sm:text-sm font-medium text-[#D7E2EA] transition-colors duration-300 hover:bg-[#D7E2EA] hover:text-[#0C0C0C] disabled:opacity-60"
-        >
-          {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />}
-          {busy ? "Adding…" : "Upload from gallery"}
-        </button>
-        {error && (
-          <p role="alert" className="text-sm text-red-400 text-center">
-            {error}
+      {!authReady ? (
+        <div className="flex justify-center mt-10">
+          <Loader2 className="w-5 h-5 animate-spin text-[#D7E2EA]/60" />
+        </div>
+      ) : !user ? (
+        <div className="mt-10 mx-auto max-w-md rounded-[32px] border-2 border-[#D7E2EA]/30 p-8 text-center">
+          <Lock className="w-6 h-6 mx-auto text-[#D7E2EA]/70" />
+          <p className="mt-4 text-[#D7E2EA] uppercase tracking-widest text-xs sm:text-sm">Sign in to upload</p>
+          <p className="mt-2 text-[#D7E2EA]/50 text-sm font-light">
+            Uploads are limited to the studio owner so nobody else can post to your portfolio.
           </p>
-        )}
-        {uploads.length > 0 && (
-          <p className="text-[#D7E2EA]/40 text-xs uppercase tracking-widest">
-            {uploads.length} image{uploads.length === 1 ? "" : "s"} added
-          </p>
-        )}
-      </div>
+          <Link
+            to="/auth"
+            className="mt-6 inline-flex items-center gap-2 rounded-full border-2 border-[#D7E2EA] px-7 py-3 uppercase tracking-widest text-xs sm:text-sm font-medium text-[#D7E2EA] transition-colors duration-300 hover:bg-[#D7E2EA] hover:text-[#0C0C0C]"
+          >
+            Sign in
+          </Link>
+        </div>
+      ) : (
+        <div className="mt-10 mx-auto max-w-4xl">
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
+            multiple
+            className="sr-only"
+            aria-label="Choose project images from your gallery"
+            onChange={(e) => handleFiles(e.target.files)}
+          />
 
-      {uploads.length > 0 && (
-        <div className="mt-12 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
-          <AnimatePresence initial={false}>
-            {uploads.map((u, i) => (
+          <div className="flex flex-col items-center gap-3">
+            <button
+              type="button"
+              onClick={() => inputRef.current?.click()}
+              className="inline-flex items-center gap-3 rounded-full border-2 border-[#D7E2EA] px-7 py-3.5 uppercase tracking-widest text-xs sm:text-sm font-medium text-[#D7E2EA] transition-colors duration-300 hover:bg-[#D7E2EA] hover:text-[#0C0C0C]"
+            >
+              <ImagePlus className="w-4 h-4" />
+              Choose from gallery
+            </button>
+            <p className="text-[#D7E2EA]/40 text-[11px] uppercase tracking-widest">
+              JPG, PNG, WEBP, GIF or AVIF · up to 8 MB each · {MAX_FILES_PER_PROJECT} images max
+            </p>
+          </div>
+
+          <AnimatePresence>
+            {selected.length > 0 && (
               <motion.div
-                key={u.id}
-                layout
-                initial={{ opacity: 0, scale: 0.94 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.94 }}
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 16 }}
                 transition={{ duration: 0.3 }}
-                className="relative group rounded-[28px] overflow-hidden border-2 border-[#D7E2EA]/30"
+                className="mt-10 rounded-[32px] border-2 border-[#D7E2EA]/30 p-5 sm:p-8"
               >
-                <button
-                  type="button"
-                  onClick={() => setOpenIndex(i)}
-                  aria-label={`Open ${u.name}`}
-                  className="block w-full"
-                >
-                  <img
-                    src={u.src}
-                    alt={u.name}
-                    className="w-full h-[180px] sm:h-[230px] object-cover cursor-zoom-in transition-transform duration-300 group-hover:scale-[1.04]"
-                    loading="lazy"
+                <div className="flex items-baseline justify-between gap-4">
+                  <h3 className="text-[#D7E2EA] uppercase tracking-widest text-xs sm:text-sm">Preview before upload</h3>
+                  <span className="text-[#D7E2EA]/40 text-[11px] uppercase tracking-widest">
+                    {selected.length} image{selected.length === 1 ? "" : "s"} · {formatBytes(totalSize)}
+                  </span>
+                </div>
+
+                <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 gap-4">
+                  {selected.map((s) => (
+                    <div key={s.id} className="relative rounded-[24px] overflow-hidden border border-[#D7E2EA]/25">
+                      <img src={s.preview} alt={s.file.name} className="w-full h-[150px] sm:h-[180px] object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => removeSelected(s.id)}
+                        aria-label={`Remove ${s.file.name}`}
+                        className="absolute top-2 right-2 rounded-full bg-black/70 p-2 text-[#D7E2EA] hover:bg-red-500 hover:text-white transition-colors"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                      <span className="absolute bottom-0 inset-x-0 bg-black/60 px-3 py-1.5 text-[10px] uppercase tracking-widest text-[#D7E2EA]/80 truncate">
+                        {formatBytes(s.file.size)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                  <input
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    maxLength={80}
+                    placeholder="Project title"
+                    aria-label="Project title"
+                    className={inputClass}
                   />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => remove(u.id)}
-                  aria-label={`Remove ${u.name}`}
-                  className="absolute top-3 right-3 rounded-full bg-black/70 p-2 text-[#D7E2EA] opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity hover:bg-red-500 hover:text-white"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                  <select
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    aria-label="Project category"
+                    className={inputClass}
+                  >
+                    {PROJECT_CATEGORIES.map((c) => (
+                      <option key={c} value={c} className="bg-[#0C0C0C]">
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="mt-6 flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={confirmUpload}
+                    disabled={uploadMutation.isPending}
+                    className="inline-flex items-center gap-2 rounded-full bg-[#D7E2EA] px-7 py-3 uppercase tracking-widest text-xs sm:text-sm font-medium text-[#0C0C0C] transition-opacity hover:opacity-85 disabled:opacity-60"
+                  >
+                    {uploadMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                    {uploadMutation.isPending ? "Uploading…" : "Confirm & upload"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      selected.forEach((s) => URL.revokeObjectURL(s.preview));
+                      setSelected([]);
+                      setError(null);
+                    }}
+                    disabled={uploadMutation.isPending}
+                    className="inline-flex items-center gap-2 rounded-full border-2 border-[#D7E2EA]/50 px-7 py-3 uppercase tracking-widest text-xs sm:text-sm font-medium text-[#D7E2EA] transition-colors hover:border-[#D7E2EA] disabled:opacity-60"
+                  >
+                    Cancel
+                  </button>
+                </div>
               </motion.div>
-            ))}
+            )}
           </AnimatePresence>
+
+          {error && (
+            <p role="alert" className="mt-6 text-center text-sm text-red-400 font-light">
+              {error}
+            </p>
+          )}
+          {success && (
+            <p role="status" className="mt-6 text-center text-sm text-emerald-400 uppercase tracking-widest">
+              Project saved — it is live in the Projects section.
+            </p>
+          )}
+
+          {uploaded.length > 0 && (
+            <div className="mt-14">
+              <h3 className="text-[#D7E2EA] uppercase tracking-widest text-xs sm:text-sm text-center">Your uploads</h3>
+              <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+                {uploaded.map((p) => (
+                  <div key={p.id} className="relative group rounded-[24px] overflow-hidden border-2 border-[#D7E2EA]/25">
+                    {p.imageUrls[0] && (
+                      <img src={p.imageUrls[0]} alt={p.title} className="w-full h-[160px] sm:h-[190px] object-cover" />
+                    )}
+                    <span className="absolute bottom-0 inset-x-0 bg-black/65 px-3 py-2 text-[10px] uppercase tracking-widest text-[#D7E2EA] truncate">
+                      {p.title}
+                    </span>
+                    {p.userId === user.id && (
+                      <button
+                        type="button"
+                        onClick={() => deleteMutation.mutate(p.id)}
+                        aria-label={`Delete ${p.title}`}
+                        className="absolute top-3 right-3 rounded-full bg-black/70 p-2 text-[#D7E2EA] opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity hover:bg-red-500 hover:text-white"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
-
-      <Lightbox images={gallery} index={openIndex} onClose={() => setOpenIndex(null)} onIndexChange={setOpenIndex} />
     </section>
   );
 }
